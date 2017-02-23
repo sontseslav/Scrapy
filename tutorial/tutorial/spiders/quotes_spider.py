@@ -56,22 +56,19 @@ class QuotesSpider(scrapy.Spider):
 
 
 class RacesSpider(scrapy.Spider):
+    FEED_FORMAT = 'csv'
+    FEED_EXPORT_FIELDS = ['trac_name', 'start_race', 'race_id', 'participants', 'name', 'id', 'chances']
     name = "races"
-    start_url = ['https://www.betbright.com/horse-racing/today']
+    start_urls = ['https://www.betbright.com/horse-racing/today']
     
     def parse(self, response):
         "follow links to race pages"
         for href in response.css('div#selection_container_races_schedule table.racing tr td a.event_time::attr(href)').extract():
-            yield scrapy.Request(response.urljoin(href), callback=self.parse_race)
+            yield scrapy.Request(response.urljoin(href),
+                                 callback=self.parse_race)
 
     def parse_race(self, response):
         "parsing race page"
-
-        def extract_id():
-            "extract race id"
-            return response.css(
-                'div#content_container div.inner_container ul::attr(data-event-id)'
-                ).extract_first().strip()
 
         def list_filter(lst):
             "filter trash sp data -> ['sp', '45', 'sp', '87']"
@@ -81,8 +78,6 @@ class RacesSpider(scrapy.Spider):
             "alter list to string"
             return ''.join(lst)
 
-        # base path for participants
-        participant_base = 'li#racecard_'+extract_id()+'_tab_winmarket ul.horses-list'
         yield {
             'trac_name': list_to_string(
                 response.css(
@@ -94,18 +89,23 @@ class RacesSpider(scrapy.Spider):
                     'div#content_container div.inner_container ul li.racecard-header div.event-name'
                     ).re(r'(\d+:\d+)')
                 ),
-            'race_id': extract_id(),
+            'race_id': response.css(
+                'div#content_container div.inner_container ul::attr(data-event-id)'
+                ).extract_first().strip(),
             'participants': {
-                'name': participant_base.css('li.horse-container ul.horse '
-                    +'li.horse-datafields-container ul.horse-datafields '
-                    +'li.horse-main-datafields-container ul.horse-main-datafields '
-                    +'li.field-information div.horse-information-righthand '
+                'name': response.css('div#content_container div.inner_container ul '
+                    +'li.racecard-collapsible ul.racecard-inner li.bb_tabs_content '
+                    +'ul.horses-list li.horse-container ul.horse li.horse-datafields-container '
+                    +'ul.horse-datafields li.horse-main-datafields-container '
+                    +'ul.horse-main-datafields li.field-information div.horse-information-righthand '
                     +'div.horse-information-name::text').extract(),
-                'ui': participant_base.css(
-                    'li.horse-container ul.horse::attr(data-participant-id)'
+                'id': response.css('div#content_container div.inner_container ul '
+                    +'li.racecard-collapsible ul.racecard-inner li.bb_tabs_content '
+                    +'ul.horses-list li.horse-container ul.horse::attr(data-participant-id)'
                     ).extract(),
-                'chances': list_filter(participant_base.css(
-                    'li.horse-container ul.horse li.horse-datafields-container '
+                'chances': list_filter(response.css('ldiv#content_container div.inner_container ul '
+                    +'li.racecard-collapsible ul.racecard-inner li.bb_tabs_content '
+                    +'ul.horses-list li.horse-container ul.horse li.horse-datafields-container '
                     +'ul.horse-datafields li.field-win-ew a.bet_now_btn::text').extract())
             }
         }
