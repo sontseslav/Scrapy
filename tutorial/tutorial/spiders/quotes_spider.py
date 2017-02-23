@@ -56,8 +56,10 @@ class QuotesSpider(scrapy.Spider):
 
 
 class RacesSpider(scrapy.Spider):
+    FEED_FORMAT = 'csv'
+    FEED_EXPORT_FIELDS = ['trac_name', 'start_race', 'race_id', 'horse_name', 'horse_id', 'horse_chances']
     name = "races"
-    start_url = ['https://www.betbright.com/horse-racing/today']
+    start_urls = ['https://www.betbright.com/horse-racing/today']
     
     def parse(self, response):
         "follow links to race pages"
@@ -75,14 +77,14 @@ class RacesSpider(scrapy.Spider):
 
         def list_filter(lst):
             "filter trash sp data -> ['sp', '45', 'sp', '87']"
-            return lst[::-2][::-1]
+            return [item for item in lst if item != 'SP']
 
         def list_to_string(lst):
             "alter list to string"
             return ''.join(lst)
 
         # base path for participants
-        participant_base = 'li#racecard_'+extract_id()+'_tab_winmarket ul.horses-list'
+        participant_base = response.css('li#racecard_'+extract_id()+'_tab_winmarket ul.horses-list')
         yield {
             'trac_name': list_to_string(
                 response.css(
@@ -95,19 +97,17 @@ class RacesSpider(scrapy.Spider):
                     ).re(r'(\d+:\d+)')
                 ),
             'race_id': extract_id(),
-            'participants': {
-                'name': participant_base.css('li.horse-container ul.horse '
-                    +'li.horse-datafields-container ul.horse-datafields '
-                    +'li.horse-main-datafields-container ul.horse-main-datafields '
-                    +'li.field-information div.horse-information-righthand '
-                    +'div.horse-information-name::text').extract(),
-                'ui': participant_base.css(
-                    'li.horse-container ul.horse::attr(data-participant-id)'
-                    ).extract(),
-                'chances': list_filter(participant_base.css(
-                    'li.horse-container ul.horse li.horse-datafields-container '
-                    +'ul.horse-datafields li.field-win-ew a.bet_now_btn::text').extract())
-            }
+            'horse_name': participant_base.css('li.horse-container ul.horse '
+                +'li.horse-datafields-container ul.horse-datafields '
+                +'li.horse-main-datafields-container ul.horse-main-datafields '
+                +'li.field-information div.horse-information-righthand '
+                +'div.horse-information-name::text').extract(),
+            'horse_id': participant_base.css(
+                'li.horse-container ul.horse::attr(data-participant-id)'
+                ).extract(),
+            'horse_chances': list_filter(participant_base.css(
+                'li.horse-container ul.horse li.horse-datafields-container '
+                +'ul.horse-datafields li.field-win-ew a.bet_now_btn::text').extract())
         }
 
 
