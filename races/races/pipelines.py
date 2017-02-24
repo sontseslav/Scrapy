@@ -6,6 +6,12 @@
 # See: http://doc.scrapy.org/en/latest/topics/item-pipeline.html
 
 
-class TutorialPipeline(object):
+class RacesPipeline(object):
+    def open_spider(self, spider):
+        pass
+
+    def close_spider(self, spider):
+        pass
+
     def process_item(self, item, spider):
         return item
